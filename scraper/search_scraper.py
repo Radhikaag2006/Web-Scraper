@@ -2,6 +2,55 @@ from bs4 import BeautifulSoup
 import time
 
 
+def get_total_pages(driver, category):
+    """
+    Returns the total number of pages
+    available for the given category.
+    """
+
+    url = (
+        f"https://www.amazon.in/s?"
+        f"k={category}&page=1"
+    )
+
+    driver.get(url)
+
+    # Wait for page to load
+    time.sleep(3)
+
+    soup = BeautifulSoup(driver.page_source, "lxml")
+
+    # Find pagination container
+    pagination = soup.select_one(".s-pagination-container")
+
+    # If pagination doesn't exist,
+    # there is only one page
+    if pagination is None:
+        return 1
+
+    page_numbers = []
+
+    # Get all pagination items
+    items = pagination.select(".s-pagination-item")
+
+    for item in items:
+
+        text = item.get_text(strip=True)
+
+        # Keep only numbers
+        if text.isdigit():
+            page_numbers.append(int(text))
+
+    # If no numbers found
+    if not page_numbers:
+        return 1
+
+    total_pages = max(page_numbers)
+
+    print(f"\nTotal Pages Found: {total_pages}")
+
+    return total_pages
+
 def scrape_search_page(driver, category, page=1):
 
     url = (

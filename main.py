@@ -1,9 +1,12 @@
 from scraper.selenium_driver import get_driver
-from scraper.search_scraper import scrape_search_page
+from scraper.search_scraper import (
+    scrape_search_page,
+    get_total_pages
+)
 from scraper.product_scraper import scrape_product_page
 
 import pandas as pd
-import os 
+import os
 
 
 def main():
@@ -14,51 +17,79 @@ def main():
 
     driver = get_driver()
 
+    # ==============================
+    # Detect total pages
+    # ==============================
+
+    total_pages = get_total_pages(
+        driver,
+        category
+    )
+
+
     all_search_products = []
 
-    # scraping all 10 search pages 
-    for page in range(1,11):
-        print(f"\n Scraping Search Page{page}")
+    # ==============================
+    # Scrape all search pages
+    # ==============================
+
+    for page in range(1, total_pages + 1):
+
+        print(
+            f"\nScraping Search Page {page}/{total_pages}"
+        )
 
         products = scrape_search_page(
             driver,
             category,
-            page=1
+            page=page
         )
 
         all_search_products.extend(products)
 
-        print(
-            f"\n Total Products Found: " f"{len(all_search_products)}"
-        )
+    print(
+        f"\nTotal Products Found: "
+        f"{len(all_search_products)}"
+    )
 
-   # removing duplictes
+    # ==============================
+    # Remove duplicate ASINs
+    # ==============================
+
     seen_asins = set()
     unique_products = []
 
     for product in all_search_products:
+
         asin = product["asin"]
 
         if asin in seen_asins:
             continue
-        seen_asins.add(asin)
 
+        seen_asins.add(asin)
         unique_products.append(product)
 
-        print(f"Unique products: "
-              f"{len(unique_products)}")
-        
-    # scarping product pages 
+    print(
+        f"\nUnique Products: "
+        f"{len(unique_products)}"
+    )
+
+    # ==============================
+    # Scrape product pages
+    # ==============================
+
     final_products = []
+
     total = len(unique_products)
-    
+
     for index, product in enumerate(
         unique_products,
         start=1
     ):
 
         print(
-            f"\n[{index}] Processing..."
+            f"\n[{index}/{total}] "
+            f"Scraping {product['asin']}"
         )
 
         try:
@@ -73,34 +104,53 @@ def main():
                 **details
             }
 
-            # Clean URL 
-            merged["product_url"]=( f"https://www.amazon.in/dp/"
-                f"{merged['asin']}")
-            
-            # removing duplicate fields
-            merged.pop("title",None)
-            merged.pop("image_url",None)
-            final_products.append(merged)
+            # Clean Product URL
+            merged["product_url"] = (
+                f"https://www.amazon.in/dp/"
+                f"{merged['asin']}"
+            )
+
+            # Remove duplicate fields
+            merged.pop("title", None)
+            merged.pop("image_url", None)
+
+            final_products.append(
+                merged
+            )
 
         except Exception as e:
-            print(f"Error scraping "
-                f"{product['asin']}")
+
+            print(
+                f"Error scraping "
+                f"{product['asin']}"
+            )
+
             print(e)
 
-    # close browser AFTER all products
+    # ==============================
+    # Close browser
+    # ==============================
+
     driver.quit()
 
-    # create dataframe AFTER loop
+    # ==============================
+    # Save CSV
+    # ==============================
+
     df = pd.DataFrame(
         final_products
     )
 
-    os.makedirs("output", exist_ok=True)
+    os.makedirs(
+        "output",
+        exist_ok=True
+    )
 
     csv_file = os.path.join(
-    "output",
-    f"{category}.csv")
-    
+        "output",
+        f"{category}.csv"
+    )
+
     df.to_csv(
         csv_file,
         index=False,
@@ -111,8 +161,10 @@ def main():
         f"\nCSV saved: {csv_file}"
     )
 
-    print(f"Total Rows: "
-          f"{len(df)}")
+    print(
+        f"Total Rows: {len(df)}"
+    )
+
 
 if __name__ == "__main__":
     main()
