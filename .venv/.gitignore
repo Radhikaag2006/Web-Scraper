@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environment
+.venv/
+
+# VS Code
+.vscode/
+
+# Output files
+output/
+
+# Debug HTML files
+amazon_debug.html
+first_card.html
+product_page.html
+selenium_page.html
+
+# macOS
+.DS_Store
