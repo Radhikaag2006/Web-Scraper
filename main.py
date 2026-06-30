@@ -8,6 +8,15 @@ from scraper.product_scraper import scrape_product_page
 import pandas as pd
 import os
 import time
+import random 
+
+def human_delay(min_time=2, max_time=5):
+    # this will return a random decimal between 2 and  5
+    delay = random.uniform(min_time, max_time)
+    print(f"Waiting for "
+          f"{delay: .2f} second....")
+    time.sleep(delay)
+
 
 
 def main():
@@ -155,6 +164,8 @@ def main():
                             f"({len(final_products)})"
                         )
 
+                        human_delay()
+
                         # auto saving the products
                         if (
                             len(final_products)
@@ -198,9 +209,8 @@ def main():
                                 f"seconds..."
                             )
 
-                            time.sleep(
-                                RETRY_DELAY
-                            )
+                            human_delay(
+                                RETRY_DELAY,RETRY_DELAY + 3)
 
                 # product failed after all retries
                 if not success:
