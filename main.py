@@ -4,6 +4,7 @@ from scraper.search_scraper import (
     get_total_pages
 )
 from scraper.product_scraper import scrape_product_page
+from datetime import datetime
 
 import pandas as pd
 import os
@@ -40,11 +41,6 @@ def main():
         f"{category}.csv"
     )
 
-    # configurations
-    SAVE_INTERVAL = 10
-    MAX_RETRIES = 2
-    RETRY_DELAY = 3
-
     # data structures for storing the products
 
     # stores all the successfully scraped products
@@ -52,6 +48,36 @@ def main():
 
     # used to remove duplicate products
     seen_asins = set()
+
+    # stores the products that failed after all the retries 
+    failed_products = []
+
+    # this is used to store the ASIN'S that are already prsent in the CSV 
+    scraped_asins = set()
+
+    # Check if the csv already exists 
+    if os.path.exists(csv_file):
+        print("\n Existing CSV found")
+        old_df = pd.read_csv(csv_file)
+
+        # Load previously scraped products 
+        final_products = old_df.to_dict(orient="records")
+
+        #Store all the previously scrapped ASINS
+        scraped_asins = set(old_df["asin"].astype(str))
+
+        print(f"Found"
+              f"{len(scraped_asins)}"
+              f"already scraped products.")
+
+
+    # configurations
+    SAVE_INTERVAL = 10
+    MAX_RETRIES = 2
+    RETRY_DELAY = 3
+
+  
+
 
     try:
 
@@ -102,6 +128,11 @@ def main():
 
                 asin = product["asin"]
 
+                # skip the products already present in CSV 
+                if asin in scraped_asins:
+                    print(f"Already Scraped : "
+                        f"{asin}")
+                    continue
                 # skip duplicate ASIN's
                 if asin in seen_asins:
                     continue
@@ -117,6 +148,7 @@ def main():
                 )
 
                 success = False
+                last_error = ""
 
                 # retry mechanism
                 for attempt in range(
@@ -130,6 +162,10 @@ def main():
                             driver,
                             product["product_url"]
                         )
+
+                        # temp for  testing 
+                        #if asin == "B09MM58Y7Q":
+                           # raise Exception("Testing Failed Product Logging")
 
                         # merge search page data with product page
                         merged = {
@@ -156,6 +192,7 @@ def main():
                         final_products.append(
                             merged
                         )
+                        seen_asins.add(asin)
 
                         success = True
 
@@ -193,7 +230,8 @@ def main():
                         break
 
                     except Exception as e:
-
+                        
+                        last_error = str(e)
                         print(
                             f"\nAttempt "
                             f"{attempt} Failed"
@@ -220,6 +258,18 @@ def main():
                         f"{asin}"
                     )
 
+                    failed_products.append({
+                        "asin" : asin,
+                        "product_url" : product["product_url"],
+                        "category" : category,
+                        "attempts" : MAX_RETRIES+1,
+                        "error" : last_error ,
+                        "timestamp" : datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                    })
+                    print("\nAdded to failed products list")
+                    print(failed_products[-1])
+
     # user interrupts the scraper
     except KeyboardInterrupt:
 
@@ -237,6 +287,11 @@ def main():
 
         driver.quit()
 
+        # create log folder if it dosen't exist 
+        os.makedirs("logs", exist_ok = True)
+        failed_log_file = os.path.join("logs",f"{category}_failedproducts.csv")
+
+        # Save successful products 
         if final_products:
 
             df = pd.DataFrame(
@@ -264,7 +319,33 @@ def main():
             print(
                 "\nNo Products Were Scraped."
             )
+        
+        #Save failed products 
+        if failed_products:
 
+            failed_df = pd.DataFrame(failed_products)
+            failed_df.to_csv(failed_log_file, index = False, encoding = "utf-8-sig")
+            print(f"\n Failed Products Log Saved : "
+                  f"{failed_log_file}")
+            print(f"Failed Products : "
+                  f"{len(failed_df)}")
+            
+        print("\n==============================")
+
+        print(
+            f"Successful Products : "
+            f"{len(final_products)}"
+        )
+
+        print(
+            f"Failed Products : "
+            f"{len(failed_products)}"
+        )
+
+        print("==============================")
+    
+
+   
 
 if __name__ == "__main__":
     main()
